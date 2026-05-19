@@ -7,7 +7,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # 🚨 여기에 아까 복사한 디스코드 봇 토큰을 넣으세요!
-DISCORD_TOKEN = "YOUR_TOKEN"
+DISCORD_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 
 @bot.event
 async def on_ready():

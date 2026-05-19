@@ -1,6 +1,7 @@
 import os
 import datetime
 import discord
+from dotenv import load_dotenv
 from discord.ext import commands
 from crewai import Agent, Task, Crew, LLM
 
@@ -8,12 +9,15 @@ from crewai import Agent, Task, Crew, LLM
 from crewai.tools import tool 
 from langchain_community.tools import DuckDuckGoSearchRun 
 
+# 🚨 중요: 백그라운드에서 .env 파일을 몰래 읽어오는 스위치 켜기
+load_dotenv()
+
 # ==========================================
 # 1. 환경 설정 (회원님 환경에 맞게 필수 수정!)
 # ==========================================
-DISCORD_TOKEN = "YOUR_TOKEN"
-LLM_URL = "YOUR_TOKEN"
-OBSIDIAN_VAULT_PATH = r"C:"
+DISCORD_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+LLM_URL = os.getenv("LLM_API_URL")
+OBSIDIAN_VAULT_PATH = os.getenv("OBSIDIAN_VAULT_PATH")
 
 # ==========================================
 # 2. 디스코드 & 도구 설정
