@@ -40,7 +40,7 @@ async def run_automatic_committee():
         market_context, chart_filepath = await asyncio.to_thread(m9_data.get_upbit_data, ticker)
         
         # 2. 위원회 및 수석 결재
-        agents = ["추세 추종자", "안전주의 퀀트", "역발상가", "뉴스 분석가", "기관 수급 추적자", "패턴 인식기", "거시경제 전문가", "리스크 관리자", "단기 스캘퍼", "장기 가치투자자"]
+        agents = ["추세 추종자", "안전주의 퀀트", "역발상가", "뉴스 분석가", "기관 수급 추적자", "패턴 인식기", "밸류체인 분석가", "리스크 관리자", "단기 스캘퍼", "장기 가치투자자"]
         tasks = [m9_ai.llm_agent_task(name, market_context) for name in agents]
         results = await asyncio.gather(*tasks)
 
