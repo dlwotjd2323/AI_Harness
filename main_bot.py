@@ -11,6 +11,7 @@ from apscheduler.triggers.cron import CronTrigger
 import m9_data
 import m9_ai
 import m10_logger
+import m3_order # 🌟 [추가됨] 실전 자동 매매 모듈
 
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
@@ -20,36 +21,30 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# ==========================================
-# 🌟 [신규] M11-2 인터랙티브 버튼 뷰 클래스
-# ==========================================
 class CommitteeView(View):
     def __init__(self):
-        super().__init__(timeout=None) # 버튼이 사라지지 않도록 설정
+        super().__init__(timeout=None)
 
     @discord.ui.button(label="BTC 분석", style=discord.ButtonStyle.primary, emoji="🧡")
     async def btc_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("🚀 비트코인 정밀 분석을 시작합니다...", ephemeral=True)
+        await interaction.response.send_message("🚀 비트코인 정밀 분석 및 매매 파이프라인 가동...", ephemeral=True)
         await run_manual_committee(interaction.channel, ["KRW-BTC"])
 
     @discord.ui.button(label="ETH 분석", style=discord.ButtonStyle.success, emoji="💙")
     async def eth_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("🚀 이더리움 정밀 분석을 시작합니다...", ephemeral=True)
+        await interaction.response.send_message("🚀 이더리움 정밀 분석 및 매매 파이프라인 가동...", ephemeral=True)
         await run_manual_committee(interaction.channel, ["KRW-ETH"])
 
     @discord.ui.button(label="SOL 분석", style=discord.ButtonStyle.secondary, emoji="💜")
     async def sol_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("🚀 솔라나 정밀 분석을 시작합니다...", ephemeral=True)
+        await interaction.response.send_message("🚀 솔라나 정밀 분석 및 매매 파이프라인 가동...", ephemeral=True)
         await run_manual_committee(interaction.channel, ["KRW-SOL"])
 
     @discord.ui.button(label="전체 종목 스캔", style=discord.ButtonStyle.danger, emoji="🔥")
     async def all_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message("🚨 전 종목 풀스캔 분석 파이프라인을 가동합니다!", ephemeral=True)
+        await interaction.response.send_message("🚨 전 종목 풀스캔 및 자동 매매 파이프라인 가동!", ephemeral=True)
         await run_manual_committee(interaction.channel, ["KRW-BTC", "KRW-ETH", "KRW-SOL"])
 
-# ==========================================
-
-# 🌟 [공통] 분석 실행 로직 (정기/수동 공용)
 async def run_manual_committee(channel, tickers):
     for ticker in tickers:
         coin_name = ticker.split('-')[1]
@@ -66,7 +61,12 @@ async def run_manual_committee(channel, tickers):
             mid_report += f"{res}\n"
 
         chief_decision = await asyncio.to_thread(m9_ai.call_chief_judge_sync, mid_report)
-        final_report = f"{mid_report}=====================================\n👨‍⚖️ [{coin_name}] 수석 결재: {chief_decision}"
+        
+        # 🌟 [추가됨] 수석 결재자 결정에 따른 매수 로직 실행
+        trade_result = await asyncio.to_thread(m3_order.execute_trade, ticker, chief_decision)
+        
+        # 🌟 [수정됨] 최종 보고서에 체결 내역 기록
+        final_report = f"{mid_report}=====================================\n👨‍⚖️ [{coin_name}] 수석 결재: {chief_decision}\n⚙️ {trade_result}"
 
         saved_path = await asyncio.to_thread(m10_logger.save_to_obsidian, final_report, ticker)
         
@@ -78,7 +78,6 @@ async def run_manual_committee(channel, tickers):
             
         await asyncio.sleep(3)
 
-# 정기 관제용 (tickers 고정)
 async def run_automatic_committee():
     channel = bot.get_channel(CHANNEL_ID)
     if channel:
@@ -92,12 +91,11 @@ async def on_ready():
     scheduler.start()
     print("⏰ [스케줄러 가동] 무인 자동 관제 크론 작업 등록 완료 (매일 09시, 21시)")
 
-# 🌟 [신규] 대시보드 메뉴 호출 명령어
 @bot.command(name="메뉴")
 async def show_menu(ctx):
     embed = discord.Embed(
         title="🤖 AI 하네스 투자 관제 대시보드",
-        description="분석을 원하는 종목의 버튼을 터치해 주세요.\n분석 결과는 옵시디언과 크리스탈(기억망)에 자동 저장됩니다.",
+        description="분석을 원하는 종목의 버튼을 터치해 주세요.\n분석 결과는 옵시디언과 크리스탈(기억망)에 저장되며, 매수 판결 시 1만 원 자동 매수가 진행됩니다.",
         color=discord.Color.blue()
     )
     embed.add_field(name="상태", value="🟢 가동 중 (24/7 무인 관제)", inline=True)
