@@ -27,7 +27,8 @@ async def run_automatic_committee():
 
     print(f"⏰ [정기 관제] {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 자동 투자 위원회 가동")
     
-    market_context = m9_data.get_upbit_btc_data()
+    # 텍스트 데이터와 차트 파일 경로를 분리해서 넘겨받습니다.
+    market_context, chart_filepath = await asyncio.to_thread(m9_data.get_upbit_btc_data)
     
     agents = ["추세 추종자", "안전주의 퀀트", "역발상가", "뉴스 분석가", "기관 수급 추적자", "패턴 인식기", "거시경제 전문가", "리스크 관리자", "단기 스캘퍼", "장기 가치투자자"]
     tasks = [m9_ai.llm_agent_task(name, market_context) for name in agents]
@@ -42,7 +43,12 @@ async def run_automatic_committee():
 
     saved_path = await asyncio.to_thread(m10_logger.save_to_obsidian, final_report)
     
-    await channel.send(f"```text\n{final_report}\n```\n💾 **[옵시디언 자동 기록 완료]** `{saved_path}`")
+    # 차트 이미지가 정상적으로 생성되었다면 디스코드에 파일로 첨부하여 전송합니다.
+    if chart_filepath and os.path.exists(chart_filepath):
+        discord_file = discord.File(chart_filepath)
+        await channel.send(f"```text\n{final_report}\n```\n💾 **[옵시디언/기억망 자동 기록 완료]** `{saved_path}`", file=discord_file)
+    else:
+        await channel.send(f"```text\n{final_report}\n```\n💾 **[옵시디언/기억망 자동 기록 완료]** `{saved_path}`")
 
 @bot.event
 async def on_ready():
@@ -56,7 +62,7 @@ async def on_ready():
 async def vote(ctx):
     global CHANNEL_ID
     CHANNEL_ID = ctx.channel.id
-    await ctx.send("🚨 **[수동 호출]** 실시간 데이터를 분석 중입니다...")
+    await ctx.send("🚨 **[수동 호출]** 실시간 데이터 분석 및 차트 생성을 시작합니다...")
     await run_automatic_committee()
 
 bot.run(DISCORD_TOKEN)
