@@ -25,30 +25,44 @@ async def run_automatic_committee():
         print("⚠️ 에러: 채널 ID를 찾을 수 없습니다.")
         return
 
-    print(f"⏰ [정기 관제] {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 자동 투자 위원회 가동")
+    # 🌟 [추가됨] 감시할 코인 종목 리스트 
+    tickers = ["KRW-BTC", "KRW-ETH", "KRW-SOL"]
     
-    # 텍스트 데이터와 차트 파일 경로를 분리해서 넘겨받습니다.
-    market_context, chart_filepath = await asyncio.to_thread(m9_data.get_upbit_btc_data)
-    
-    agents = ["추세 추종자", "안전주의 퀀트", "역발상가", "뉴스 분석가", "기관 수급 추적자", "패턴 인식기", "거시경제 전문가", "리스크 관리자", "단기 스캘퍼", "장기 가치투자자"]
-    tasks = [m9_ai.llm_agent_task(name, market_context) for name in agents]
-    results = await asyncio.gather(*tasks)
+    print(f"⏰ [정기 관제] {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} 자동 투자 위원회 가동 ({len(tickers)}개 종목)")
+    await channel.send(f"🚀 **[다중 자산 관제 시작]** 설정된 {len(tickers)}개 종목의 순차 분석을 가동합니다.")
 
-    mid_report = f"{market_context}\n=====================================\n"
-    for res in results:
-        mid_report += f"{res}\n"
+    # 🌟 [수정됨] 종목 리스트를 순회하는 For Loop 적용
+    for ticker in tickers:
+        coin_name = ticker.split('-')[1]
+        await channel.send(f"🔄 **[{coin_name}]** 분석 파이프라인 가동 중...")
+        
+        # 1. 특정 종목 데이터/차트 수집
+        market_context, chart_filepath = await asyncio.to_thread(m9_data.get_upbit_data, ticker)
+        
+        # 2. 위원회 및 수석 결재
+        agents = ["추세 추종자", "안전주의 퀀트", "역발상가", "뉴스 분석가", "기관 수급 추적자", "패턴 인식기", "거시경제 전문가", "리스크 관리자", "단기 스캘퍼", "장기 가치투자자"]
+        tasks = [m9_ai.llm_agent_task(name, market_context) for name in agents]
+        results = await asyncio.gather(*tasks)
 
-    chief_decision = await asyncio.to_thread(m9_ai.call_chief_judge_sync, mid_report)
-    final_report = f"{mid_report}=====================================\n👨‍⚖️ 수석 결재: {chief_decision}"
+        mid_report = f"{market_context}\n=====================================\n"
+        for res in results:
+            mid_report += f"{res}\n"
 
-    saved_path = await asyncio.to_thread(m10_logger.save_to_obsidian, final_report)
-    
-    # 차트 이미지가 정상적으로 생성되었다면 디스코드에 파일로 첨부하여 전송합니다.
-    if chart_filepath and os.path.exists(chart_filepath):
-        discord_file = discord.File(chart_filepath)
-        await channel.send(f"```text\n{final_report}\n```\n💾 **[옵시디언/기억망 자동 기록 완료]** `{saved_path}`", file=discord_file)
-    else:
-        await channel.send(f"```text\n{final_report}\n```\n💾 **[옵시디언/기억망 자동 기록 완료]** `{saved_path}`")
+        chief_decision = await asyncio.to_thread(m9_ai.call_chief_judge_sync, mid_report)
+        final_report = f"{mid_report}=====================================\n👨‍⚖️ [{coin_name}] 수석 결재: {chief_decision}"
+
+        # 3. 옵시디언 및 기억망 기록 (종목명 전달)
+        saved_path = await asyncio.to_thread(m10_logger.save_to_obsidian, final_report, ticker)
+        
+        # 4. 디스코드 전송
+        if chart_filepath and os.path.exists(chart_filepath):
+            discord_file = discord.File(chart_filepath)
+            await channel.send(f"```text\n{final_report}\n```\n💾 **[옵시디언/기억망 자동 기록 완료]** `{saved_path}`", file=discord_file)
+        else:
+            await channel.send(f"```text\n{final_report}\n```\n💾 **[옵시디언/기억망 자동 기록 완료]** `{saved_path}`")
+            
+        # API Rate Limit 및 LLM 과부하 방지를 위한 5초 대기
+        await asyncio.sleep(5)
 
 @bot.event
 async def on_ready():
@@ -62,7 +76,7 @@ async def on_ready():
 async def vote(ctx):
     global CHANNEL_ID
     CHANNEL_ID = ctx.channel.id
-    await ctx.send("🚨 **[수동 호출]** 실시간 데이터 분석 및 차트 생성을 시작합니다...")
+    await ctx.send("🚨 **[수동 호출]** 전체 자산 실시간 데이터 분석 및 차트 생성을 시작합니다...")
     await run_automatic_committee()
 
 bot.run(DISCORD_TOKEN)
