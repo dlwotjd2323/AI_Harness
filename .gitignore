@@ -4,3 +4,5 @@
 .env
 
 _Archive_old/
+
+__pycache__/
